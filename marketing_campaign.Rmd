@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -20,72 +20,63 @@ library(magrittr)
 
 ```
 
-```{r util}
-
-cols <- c( 'reach', 'x_of_view_content','spend_usd' )
-
-density_chart <- function(data, coluna, group) {
-  
-  chart <- data %>% 
-   ggplot(aes(x={{coluna}}, fill={{group}}))+
-   geom_density(alpha = 0.8)
-  
-  return(chart)
-}
-
-box_chart <- function(data, coluna){
-  
-  chart <- data %>% 
-    ggplot(aes(x= {{group}}, y = {{coluna}}))+
-    geom_boxplot()
-  
-  return(chart)
-}
-
-
-```
-
-
 ## Business Context
 
-### Background
-Our company, TechGadgets Inc., recently launched a new marketing campaign to 
-promote our latest product, the SmartGadget Pro. This campaign was designed to 
-increase brand awareness, drive traffic to our website, and ultimately boost sales. 
-The previous campaign, which promoted the SmartGadget Basic, had moderate success, 
-and we aim to surpass its performance with the new campaign.
+Our company, TechGadgets Inc., recently launched an experiment of two marketing campaigns to promote our latest product, the SmartGadget Pro. The experiment will focus on compare the effectiveness the campaigns in terms of brand awareness, drive traffic to our website, and ultimately boost sales.
 
 How to measure:
-- **Brand awareness** 
-  
 
+1.  **Brand awareness**
 
+    -   Reach
 
-### Importing datasets
+2.  **Drive Traffic**
+
+    -   CTR
+
+    -   Conversion Rate
+
+3.  **Boost Sales**
+
+    -   ROI
+
+#### Importing data
 
 ```{r dataset}
 
 # Previous Campaign (cc)
-previous_campaign <- read.csv('datasets/marketing_campaign/control_group.csv', 
+control_campaign <- read.csv('datasets/marketing_campaign/control_group.csv', 
                     sep = ';')
 
-# New Campaign (nc)
-new_campaign <- read.csv('datasets/marketing_campaign/test_group.csv',
-                  sep = ';')
+control_campaign <- janitor::clean_names(control_campaign)
 
+# Fill NAs
+control_campaign <- control_campaign %>%
+  tidyr::replace_na(list(
+    x_of_impressions = as.integer(mean(control_campaign$x_of_impressions, na.rm = TRUE)),
+    reach = as.integer(mean(control_campaign$reach, na.rm = TRUE)),
+    x_of_website_clicks = as.integer(mean(control_campaign$x_of_website_clicks, na.rm = TRUE)),
+    x_of_searches = as.integer(mean(control_campaign$x_of_website_clicks, na.rm = TRUE)),
+    x_of_view_content = as.integer(mean(control_campaign$x_of_view_content, na.rm = TRUE)),
+    x_of_add_to_cart = as.integer(mean(control_campaign$x_of_add_to_cart, na.rm = TRUE)),
+    x_of_purchase = as.integer(mean(control_campaign$x_of_purchase, na.rm = TRUE))))
+
+
+# New Campaign (nc)
+test_campaign <- read.csv('datasets/marketing_campaign/test_group.csv',
+                  sep = ';')
+test_campaign <- janitor::clean_names(test_campaign)
 
 ```
 
-### Cleaning and transformation
+#### Cleaning and transformation
 
 ```{r clean-up}
 
 # Merging datasets
-campaigns <- dplyr::bind_rows(previous_campaign, new_campaign)
+campaigns <- dplyr::bind_rows(control_campaign, test_campaign)
 
 # Fixing headers
-
-campaigns <- janitor::clean_names(campaigns)
 
 campaigns <- campaigns %>% 
   dplyr::rename(
@@ -97,83 +88,77 @@ campaigns <- campaigns %>%
     purchase = x_of_purchase
   )
 
-# Fill NAs
-# campaigns <- campaigns %>% 
-#   tidyr::replace_na(list())
-
-
 ```
 
+#### Aggregating data
 
-### Exploring data
-
-#### Brand Awareness
-
-Brand awareness refers to the extent to which consumers are familiar with a 
-particular brand. It encompasses the recognition and recall of the brand by the 
-target audience. High brand awareness means that consumers can easily identify 
-the brand and associate it with specific products or services. This is crucial 
-for building a strong brand presence and fostering customer loyalty. 
-
-Ao monitorar reach e impressions, é possível avaliar o 
-impacto de uma campanhaa de conscientização da marca. Essas métricas ajudam a 
-entender o alcance e a penetração da campanha no mercado-alvo. 
-Quanto maior o **reach**, mais pessoas únicas são expostas à marca, aumentando a 
-probabilidade de reconhecimento e lembrança. **Impressions** fornece insights sobre 
-a frequência com que o público está sendo exposto à mensagem da marca. 
-Múltiplas impressões podem reforçar a mensagem e aumentar a probabilidade de 
-que a marca seja lembrada pelos consumidores
- 
-#### Data Summary
-
- 
-```{r summary-cc}
-
-summary(campaigns$impressions)
-summary(campaigns$reach)
-
-```
-
-#### Distributions
- 
 ```{r}
 
-
-density_chart(campaigns,impressions, campaign_name)
-
-density_chart(campaigns, reach,campaign_name)
-
-
+agg_campaigns <- campaigns %>% 
+  dplyr::group_by(campaign_name) %>% 
+  dplyr::summarise_if(is.numeric,
+               mean,
+               na.rm = TRUE) %>% 
+  dplyr::mutate(across(where(is.double), as.integer))
+  
 ```
 
-### Comparing Campaigns
+## Analysis
+
+### Overall Scenario
+
+For an overall perspective, both campaigns had similar results in terms of searches, purchase and views. The Control Campaign has reached higher numbers of impressions, reach and clients who added products to a chart. The Test Campaign has beaten its rival in clicks and in money spend.
+
+```{r}
+
+longer_df <- agg_campaigns %>% 
+  tidyr::pivot_longer(cols = spend_usd:purchase,
+                      names_to = 'metric',
+                      values_to = 'mean')
+
+longer_df %>% 
+  ggplot(aes(x = metric, y = mean, fill = campaign_name)) +
+  geom_col(position = 'dodge') +
+  facet_wrap(.~ metric, scales = 'free') +
+  theme_minimal() +
+  labs(x = '', y = '') +
+   theme(
+     # Remove o título das facetas
+    axis.text.x = element_blank(),   # Remove os textos do eixo X
+    axis.ticks.x = element_blank()   # Remove os ticks do eixo X
+  )
+  
+```
+
+### Brand Awareness
+
+Brand awareness refers to the extent to which consumers are familiar with a particular brand. It encompasses the recognition and recall of the brand by the target audience. High brand awareness means that consumers can easily identify the brand and associate it with specific products or services. This is crucial for building a strong brand presence and fostering customer loyalty.
 
 #### Reach
 
-
-**Pressupostos** 
-
-- Avaliar o tipo de variável
-- Avaliar normalidade da distribuição
-- Checar homogeneidade das variancias
-
-A feature *Reach* é uma variável numérica, portanto a primeira alternativa 
-é realizar um teste paramétrico de comparação entre as médias das duas campanhas.
-
-Para avaliar a normalidade das distribuiçoes usarei o teste de Shapiro
+-   **Normality check**
 
 ```{r shapiro-testing}
 
-shapiro.test(cc_df$reach)
+campaigns %>% 
+  ggplot(aes(x = reach, fill = campaign_name))+
+  geom_density(alpha = 0.8)+
+  theme_minimal()+
+  labs(title = "Density Distribution of Reach: Control vs Test Campaign",
+       x = 'Reach',
+       y = '')+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
 
-shapiro.test(nc_df$reach)
+shapiro.test(control_campaign$reach)
+
+shapiro.test(test_campaign$reach)
 
 ```
 
-De acordo com os resultados do teste, p-value de ambas as amostras maior que 0.05,
-podemos considerar como distribuiçao normal
+Therefore the Shapiro test for the Test Campaign indicates a normality distribution, the p-value is just slightly above the parameter we use to define its normality. Using this information and the density curve, *I'll consider the variable reach not normal distributed*
 
-A avaliação da homogeneidade da variancia será feita utilizando o teste de levene
+-   **Variance check**
 
 ```{r levene-testing}
 
@@ -181,154 +166,66 @@ leveneTest(reach ~ campaign_name,
            campaigns)
 
 ```
-Também de acordo com os testes podemos considerar que há homogeneidade entre 
-as variancias das duas amostras. 
 
-O contexto indica ainda que as duas amostras sao independentes, 
-assim sendo utilizaremos o teste T para compapracao de médias de amostras independentes
+The Levene test results indicates that the variance of variable reach in tow campaigns are homogeneous
 
-**Hipóteses**
+As the normality was not confirmed and with homogeneous variance, I'll use Mann-Whitney testing to compare the results of each campaign
 
-Analizando as distribuições das duas amostras nos gráficos de dendsidade e boxplot, 
-em conjunto com os valores de média e mediana do alcance das duas campanhas, 
-há uma tendencia a classificar a atual campanha como mais bem sucedida do que a nova.
+-   **Hipothesys**
 
-Faremos o teste para comprovar essa análise, utilizando as seguintes hipóteses:
+Analyzing the distributions of the two samples in the density plots, along with the mean and median values of the reach of the two campaigns, there is a tendency to classify the control campaign as more successful than the test campaign.
 
-- H0: m1 = m2
-- H1: m1 > m2
+We will perform a test to confirm this analysis, using the following hypotheses:
 
-##### T Testing
+-   H0: m_control = m_test
+
+-   H1: m_control \> m_test
+
+-   **Testing**
 
 ```{r t-test}
 
-t.test(reach ~ campaign_name,
-       campaigns,
-       var.equal = TRUE,
-       alternative = 'greater')
-
-```
-De acordo com os resultados do teste podemos afirmar, com 95% de confiança, que 
-**o alcance da atual campanha é maior que o alcance da nova campanha proposta.**
-
-#### View of Content
-
-**Pressupostos** 
-
-- Avaliar o tipo de variável
-- Avaliar normalidade da distribuição
-- Checar homogeneidade das variancias
-
-A feature *View of Content* é uma variável numérica, portanto a primeira alternativa 
-é realizar um teste paramétrico de comparação entre as médias das duas campanhas.
-
-Para avaliar a normalidade das distribuiçoes usarei o teste de Shapiro
-
-```{r view_shapiro}
-
-shapiro.test(cc_df$x_of_view_content)
-
-shapiro.test(nc_df$x_of_view_content)
-
-```
-De acordo com os resultados do teste, p-value de ambas as amostras maior que 0.05,
-podemos considerar como distribuiçao normal
-
-A avaliação da homogeneidade da variancia será feita utilizando o teste de levene
-
-```{r view-levene}
-
-leveneTest(x_of_view_content ~ campaign_name,
-           campaigns)
-
-```
-Também de acordo com os testes podemos considerar que há homogeneidade entre 
-as variancias das duas amostras. 
-
-O contexto indica ainda que as duas amostras sao independentes, 
-assim sendo utilizaremos o teste T para compapracao de médias de amostras independentes
-
-**Hipóteses**
-
-Analizando as distribuições das duas amostras nos gráficos de dendsidade e boxplot, 
-em conjunto com os valores de média e mediana do alcance das duas campanhas, 
-há uma tendencia a classificar a atual campanha igual ao da nova campanha.
-
-Faremos o teste para comprovar essa análise, utilizando as seguintes hipóteses:
-
-- H0: m1 = m2
-- H1: m1 <> m2
-
-```{r view_t-test}
-
-
-t.test(x_of_view_content ~ campaign_name,
-       data = campaigns,
-       var.equal = TRUE
-       )
-
-
-```
-Com os resultados do teste podemos dizer com 95% de confiança que em média 
-as duas campanhas geraram o mesmo número de visualizacoes de seus conteúdos
-
-#### Spend USD
-
-**Pressupostos** 
-
-- Avaliar o tipo de variável
-- Avaliar normalidade da distribuição
-- Checar homogeneidade das variancias
-
-A feature *Spend USD* é uma variável numérica, portanto a primeira alternativa 
-é realizar um teste paramétrico de comparação entre as médias das duas campanhas.
-
-Para avaliar a normalidade das distribuiçoes usarei o teste de Shapiro
-
-```{r shapiro-spend}
-
-shapiro.test(cc_df$spend_usd)
-
-shapiro.test(nc_df$spend_usd)
+wilcox.test(control_campaign$reach,
+            test_campaign$reach,
+            paired = FALSE,
+            alternative = c('greater'))
 
 ```
 
-De acordo com os resultados do teste, p-value de ambas as amostras maior que 0.05,
-podemos considerar como distribuiçao normal
+According to the test results, we can state with 95% confidence that the ***reach of the control campaign is greater than the reach of the test campaign.***
 
-A avaliação da homogeneidade da variancia será feita utilizando o teste de levene
+### Drive Traffic
 
-```{r levene-spend}
+#### Search
 
-leveneTest(spend_usd ~ campaign_name,
-           campaigns)
+##### Pressupostos
 
+##### Hipóteses
 
-```
-Também de acordo com os testes podemos considerar que há homogeneidade entre 
-as variancias das duas amostras. 
+##### Testing
 
-O contexto indica ainda que as duas amostras sao independentes, 
-assim sendo utilizaremos o teste T para compapracao de médias de amostras independentes
+#### CTR
 
-**Hipóteses**
+##### Pressupostos
 
-Analizando as distribuições das duas amostras nos gráficos de dendsidade e boxplot, 
-em conjunto com os valores de média e mediana valor arrecadado nas duas campanhas, 
-há uma tendencia a classificar a nova campanha como a de maior arrecadaçao
+##### Hipóteses
 
-Faremos o teste para comprovar essa análise, utilizando as seguintes hipóteses:
+##### Testing
 
-- H0: m1 = m2
-- H1: m1 < m2
+#### Conversion Rste
 
-```{r spen_t-testing}
+##### Pressupostos
 
-t.test(spend_usd ~ campaign_name,
-      campaigns,
-      var.equal = TRUE,
-      alternative = 'less')
+##### Hipóteses
 
-```
-Com os resultados do teste podemos dizer com 95% de confiança que em média 
-as duas campanhas geraram o mesmo número de visualizacoes de seus conteúdos
+##### Testing
+
+### Boost Sales
+
+#### ROI
+
+##### Pressupostos
+
+##### Hipóteses
+
+##### Testing
