@@ -11,14 +11,15 @@ knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 ```
 
-```{r libraries, message=FALSE, warning=FALSE}
+## Table of Contents
 
-library(tidyverse)
-library(janitor)
-library(car)
-library(magrittr)
+1.  [Business Context]
 
-```
+2.  [Data Prep]
+
+3.  [Analysis]
+
+4.  [Conclusion]
 
 ## Business Context
 
@@ -34,11 +35,20 @@ How to measure:
 
     -   CTR
 
-    -   Conversion Rate
-
 3.  **Boost Sales**
 
-    -   ROI
+    -   Conversion Rate
+
+## Data Prep
+
+#### Libraries
+
+```{r libraries}
+library(tidyverse)
+library(janitor)
+library(car)
+library(magrittr)
+```
 
 #### Importing data
 
@@ -73,6 +83,20 @@ test_campaign <- janitor::clean_names(test_campaign)
 
 ```{r clean-up}
 
+# Create CTR, Conversion Rate columns
+
+control_campaign <- control_campaign %>% 
+  dplyr::mutate(
+    ctr = (x_of_website_clicks / x_of_impressions)*100,
+    conversion = (x_of_purchase / x_of_website_clicks)*100
+  )
+
+test_campaign <- test_campaign %>% 
+  dplyr::mutate(
+    ctr = (x_of_website_clicks / x_of_impressions)*100,
+    conversion = (x_of_purchase / x_of_website_clicks)*100
+  )
+
 # Merging datasets
 campaigns <- dplyr::bind_rows(control_campaign, test_campaign)
 
@@ -88,6 +112,8 @@ campaigns <- campaigns %>%
     purchase = x_of_purchase
   )
 
+
+
 ```
 
 #### Aggregating data
@@ -98,8 +124,8 @@ agg_campaigns <- campaigns %>%
   dplyr::group_by(campaign_name) %>% 
   dplyr::summarise_if(is.numeric,
                mean,
-               na.rm = TRUE) %>% 
-  dplyr::mutate(across(where(is.double), as.integer))
+               na.rm = TRUE) 
+  #dplyr::mutate(across(where(is.double), as.integer))
   
 ```
 
@@ -112,7 +138,7 @@ For an overall perspective, both campaigns had similar results in terms of searc
 ```{r}
 
 longer_df <- agg_campaigns %>% 
-  tidyr::pivot_longer(cols = spend_usd:purchase,
+  tidyr::pivot_longer(cols = spend_usd:conversion,
                       names_to = 'metric',
                       values_to = 'mean')
 
@@ -196,36 +222,114 @@ According to the test results, we can state with 95% confidence that the ***reac
 
 ### Drive Traffic
 
-#### Search
+#### CTR (Click-Through Rate)
 
-##### Pressupostos
+Measures the effectiveness of the campaign in generating traffic to the website. It is calculated as the percentage of people who clicked on the ad relative to the total number of people who saw the ad (impressions).
 
-##### Hipóteses
+-   **Normality check**
 
-##### Testing
+```{r}
 
-#### CTR
+campaigns %>% 
+  ggplot(aes(x = ctr, fill = campaign_name))+
+  geom_density(alpha = 0.8)+
+  theme_minimal()+
+  labs(title = "Density Distribution of CTR: Control vs Test Campaign",
+       x = 'CTR',
+       y = '')+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
 
-##### Pressupostos
+control_ctr <- campaigns %>% 
+  dplyr::filter(campaign_name == 'Control Campaign') %>% 
+  dplyr::select(ctr)
 
-##### Hipóteses
 
-##### Testing
+shapiro.test(control_ctr$ctr)
 
-#### Conversion Rste
+test_ctr <- campaigns %>% 
+  dplyr::filter(campaign_name == 'Test Campaign') %>% 
+  dplyr::select(ctr)
 
-##### Pressupostos
 
-##### Hipóteses
+shapiro.test(test_ctr$ctr)
 
-##### Testing
+```
+
+The Shapiro test indicates that both CTR campaigns are not normality distributed.
+
+-   **Variance check**
+
+```{r}
+leveneTest(campaigns$ctr, campaigns$campaign_name)
+```
+
+Levene testing indicates the variances are not homogeneous
+
+-   **Hipóteses**
+
+Analyzing the distributions of the two samples in the density plots, along with the mean and median values of the CTR of the two campaigns, there is a tendency to classify the test campaign as more successful than the test campaign.
+
+We will perform a test to confirm this analysis, using the following hypotheses:
+
+-   H0: m_control = m_test
+
+-   H1: m_control \< m_test
+
+-   **Testing**
+
+```{r}
+
+wilcox.test(control_ctr$ctr, test_ctr$ctr,
+            alternative = 'less',
+            var.equal = FALSE,
+            paired = FALSE)
+
+```
+
+According to the test results, we can state with 95% confidence that the **Test Campaigns is more successful than n the Control Campaign in terms of CTR**
 
 ### Boost Sales
 
-#### ROI
+#### Conversion Rate
 
-##### Pressupostos
+-   **Normality Check**
 
-##### Hipóteses
+```{r}
 
-##### Testing
+campaigns %>% 
+ggplot(aes(x= conversion, fill = campaign_name)) +
+  geom_density(alpha = 0.8)
+
+shapiro.test(control_campaign$conversion)
+
+shapiro.test(test_campaign$conversion)
+
+```
+
+-   **Variance check**
+
+```{r}
+
+leveneTest(campaigns$conversion, campaigns$campaign_name)
+
+```
+
+-   **Hypothesis**
+
+-   H0: m_control = m_test
+
+-   H1: m_control \> m_test
+
+-   **Testing**
+
+```{r}
+
+wilcox.test(control_campaign$conversion,
+            test_campaign$conversion,
+            paired = FALSE,
+            alternative = 'greater')
+
+```
+
+## Conclusion
