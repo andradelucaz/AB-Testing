@@ -135,7 +135,7 @@ agg_campaigns <- campaigns %>%
 
 For an overall perspective, both campaigns had similar results in terms of searches, purchase and views. The Control Campaign has reached higher numbers of impressions, reach and clients who added products to a chart. The Test Campaign has beaten its rival in clicks and in money spend.
 
-```{r}
+```{r, fig.align='center'}
 
 longer_df <- agg_campaigns %>% 
   tidyr::pivot_longer(cols = spend_usd:conversion,
@@ -147,7 +147,9 @@ longer_df %>%
   geom_col(position = 'dodge') +
   facet_wrap(.~ metric, scales = 'free') +
   theme_minimal() +
-  labs(x = '', y = '') +
+  labs(x = '', 
+       y = '',
+       title = 'Overall scenario comparing the campaigns') +
    theme(
      # Remove o título das facetas
     axis.text.x = element_blank(),   # Remove os textos do eixo X
@@ -164,7 +166,7 @@ Brand awareness refers to the extent to which consumers are familiar with a part
 
 -   **Normality check**
 
-```{r shapiro-testing}
+```{r shapiro-testing, fig.align='center'}
 
 campaigns %>% 
   ggplot(aes(x = reach, fill = campaign_name))+
@@ -228,7 +230,7 @@ Measures the effectiveness of the campaign in generating traffic to the website.
 
 -   **Normality check**
 
-```{r}
+```{r, fig.align='center'}
 
 campaigns %>% 
   ggplot(aes(x = ctr, fill = campaign_name))+
@@ -240,19 +242,10 @@ campaigns %>%
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank())
 
-control_ctr <- campaigns %>% 
-  dplyr::filter(campaign_name == 'Control Campaign') %>% 
-  dplyr::select(ctr)
+shapiro.test(control_campaign$ctr)
 
 
-shapiro.test(control_ctr$ctr)
-
-test_ctr <- campaigns %>% 
-  dplyr::filter(campaign_name == 'Test Campaign') %>% 
-  dplyr::select(ctr)
-
-
-shapiro.test(test_ctr$ctr)
+shapiro.test(test_campaign$ctr)
 
 ```
 
@@ -268,7 +261,7 @@ Levene testing indicates the variances are not homogeneous
 
 -   **Hipóteses**
 
-Analyzing the distributions of the two samples in the density plots, along with the mean and median values of the CTR of the two campaigns, there is a tendency to classify the test campaign as more successful than the test campaign.
+Analyzing the distributions of the two samples in the density plots, along with the mean and median values of the CTR of the two campaigns, there is a tendency to classify the test campaign as more successful than the control campaign.
 
 We will perform a test to confirm this analysis, using the following hypotheses:
 
@@ -280,7 +273,7 @@ We will perform a test to confirm this analysis, using the following hypotheses:
 
 ```{r}
 
-wilcox.test(control_ctr$ctr, test_ctr$ctr,
+wilcox.test(control_campaign$ctr, test_campaign$ctr,
             alternative = 'less',
             var.equal = FALSE,
             paired = FALSE)
@@ -293,19 +286,28 @@ According to the test results, we can state with 95% confidence that the **Test 
 
 #### Conversion Rate
 
+The conversion rate is a key performance metric used to assess the effectiveness of a marketing campaign. It measures the percentage of users who take a desired action out of the total number of users who interacted with the campaign.
+
 -   **Normality Check**
 
-```{r}
+```{r, fig.align='center'}
 
 campaigns %>% 
 ggplot(aes(x= conversion, fill = campaign_name)) +
-  geom_density(alpha = 0.8)
+  geom_density(alpha = 0.8)+
+  labs(title = "Density Distribution of Conversion Rate: Control vs Test Campaign",
+       x = 'Reach',
+       y = '')+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
 
 shapiro.test(control_campaign$conversion)
 
 shapiro.test(test_campaign$conversion)
 
 ```
+
+The Shapiro test indicates that both CTR campaigns are not normality distributed.
 
 -   **Variance check**
 
@@ -315,7 +317,13 @@ leveneTest(campaigns$conversion, campaigns$campaign_name)
 
 ```
 
+Levene testing indicates the variances are not homogeneous
+
 -   **Hypothesis**
+
+Analyzing the distributions of the two samples in the density plots, along with the mean and median values of the Conversion rate of the two campaigns, there is a tendency to classify the control campaign as more successful than the test campaign.
+
+We will perform a test to confirm this analysis, using the following hypotheses:
 
 -   H0: m_control = m_test
 
@@ -332,4 +340,8 @@ wilcox.test(control_campaign$conversion,
 
 ```
 
+According to the test results, we can state with 95% confidence that the Control **Campaign is more successful than n the Test Campaign in terms of Conversion Rate**
+
 ## Conclusion
+
+Despite the test campaign being significantly superior to the control campaign in terms of Click Through Rate (CTR), indicating better performance in driving potential customers to the website through the ad, the control campaign achieves better results in brand awareness and boosting sales.
