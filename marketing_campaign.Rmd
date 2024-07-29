@@ -345,3 +345,5 @@ According to the test results, we can state with 95% confidence that the Control
 ## Conclusion
 
 Despite the test campaign being significantly superior to the control campaign in terms of Click Through Rate (CTR), indicating better performance in driving potential customers to the website through the ad, the control campaign achieves better results in brand awareness and boosting sales.
+
+Considering the significant difference in CTR levels between the two campaigns, a more in-depth analysis focused on this topic is recommended. CTR is considered the KPI that best reflects the efficiency of a campaign in generating leads and traffic.
